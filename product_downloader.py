@@ -1,17 +1,15 @@
-from boto3.s3.transfer import TransferConfig
+import errno
+import io
+import os
+import xml.etree.ElementTree as ET
 from functools import partial
 from multiprocessing.pool import ThreadPool
-from boto3.s3.transfer import TransferConfig
-from multiprocessing import Process
-import xml.etree.ElementTree as ET
-import product_meta as pm
+
 import boto3
-import threading
-import errno
-import time
+from boto3.s3.transfer import TransferConfig
+
 import Shared
-import os
-import io
+import product_meta as pm
 
 '''Download in parallel EO product to S3.
 
@@ -45,7 +43,7 @@ def create_dir(abs_path):
             raise
 
 
-# Takes a SINGLE object's filename and donwload it locally.
+# Takes a SINGLE object's filename and downloads it locally.
 def get_obj(obj, bucket_id):
     create_dir(obj)
     s3 = boto3.resource('s3')
@@ -82,13 +80,13 @@ def locate_bands(product, meta, file_keys, bucket_id):
     '''
 
     metadata_file = meta
-    print "Determine bands' location from " + metadata_file
+    print("Determine bands' location from " + metadata_file)
     s3 = boto3.resource('s3')
     obj = s3.Object(bucket_id, metadata_file)
     data = io.BytesIO()
     # Since we use xml file only once we retrieve it as
     obj.download_fileobj(data)
-    data.seek(0)               # a file-like object.
+    data.seek(0)  # a file-like object.
     root = ET.parse(data).getroot()
     bands = {}
     for child in root[0][0][-1][0][0]:
@@ -102,10 +100,10 @@ def locate_bands(product, meta, file_keys, bucket_id):
 def get_product_metadata(keys, bucket_id):
     pool = ThreadPool(processes=len(keys))
     _get_obj = partial(get_obj, bucket_id=bucket_id)
-    print "Download of the  metadata is started."
+    print("Download of the  metadata is started.")
     pool.map(_get_obj, keys)
     Shared.shared.write('meta', True)
-    print "Metadata ready."
+    print("Metadata ready.")
 
 
 # Takes the bands dict and donwload the selected ones in parallel.
@@ -124,10 +122,11 @@ def get_product_data(bands_dict, bucket_id, targets=None):
         bands = bands_dict.values()
 
     pool = ThreadPool(processes=len(bands))
-    print "Download of %s is starting" % str(bands)
-    res = [pool.apply_async(get_obj,
-                            args=(band, bucket_id),
-                            callback=cb) for band in bands]
+    print("Download of %s is starting" % str(bands))
+    res = []
+    for band in bands:
+        res.append(pool.apply_async(get_obj, args=(band, bucket_id), callback=cb))
+
     pool.close()
     pool.join()
 

@@ -1,16 +1,15 @@
-from multiprocessing.pool import ThreadPool, Pool
-from multiprocessing import Process, Manager
 import multiprocessing
-import product_downloader as prdl
-from pprint import pprint as pp
 import threading
 import time
-import os
-import Shared
-from random import randint
-import NoDaemonProcess as ndp
-import product_meta as pm
 from functools import partial
+from multiprocessing import Process
+from random import randint
+
+import NoDaemonProcess as ndp
+import Shared
+import product_downloader as prdl
+import product_meta as pm
+
 ''' Library  of communicating processes over a shared object
     index:  list of objects
 '''
@@ -27,12 +26,11 @@ class download_decorator(object):
         whoaim("a process assigned to object %s" % self.index)
         self.register()
         while not all(Shared.shared.dict[k] for k in self.index):
-            print("keys found for @%s" % (multiprocessing.current_process().name,
-                                          id) +
+            print("keys found for @%s, %s" % (multiprocessing.current_process().name, id) +
                   ', '.join(k for k in self.index if Shared.shared.dict[k]))
             rdm_sleep(1)
-        return(partial(self.target, params=self.params))
-#       return self.target(pm.get_meta_from_prod(self.product), self.params)
+        return (partial(self.target, params=self.params))
+        # return self.target(pm.get_meta_from_prod(self.product), self.params)
 
     def run_download_manager(self):
 
@@ -70,7 +68,7 @@ class download_decorator(object):
             key for key in self.index if key not in Shared.shared.dict.keys()]
         for v in valid_index:
             Shared.shared.write(v, False)
-        print "Objects: %s registered in shared object" % ','.join(self.index)
+        print("Objects: %s registered in shared object" % ','.join(self.index))
         rdm_sleep()
         Shared.shared.dict["nbproc"] += -1
         if Shared.shared.dict["nbproc"] == 0:
@@ -83,7 +81,7 @@ def rdm_sleep(offset=0):
 
 
 def whoaim(id):
-    print "I'm running on CPU #%s and I am %s" % (multiprocessing.current_process().name, id)
+    print("I'm running on CPU #%s and I am %s" % (multiprocessing.current_process().name, id))
 
 
 def main(funk, index):
@@ -95,6 +93,7 @@ def main(funk, index):
     def executor(func):
         func(prod_endpoint)
         return "ok"
+
     for task in index[1]:
         pool.apply_async(
             download_decorator(funk),

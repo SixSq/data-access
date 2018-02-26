@@ -1,19 +1,15 @@
+import os
 import sys
-sys.path.append('/root/.snap/snap-python')
+sys.path.append(os.path.expanduser('~/.snap/snap-python'))
 import snappy
-from snappy import Rectangle
 from snappy import ProductIO
-from snappy import jpy
+jpy = snappy.jpy
 from snappy import GPF
-from snappy import HashMap
+from snappy import Rectangle
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import numpy as np
-import os
-import time
-from snappy import Rectangle
+import numpy
 
 
 ''' Read resample, subset, and compute the vegetation indices of SENTINEL-2
@@ -77,7 +73,7 @@ def subset(product):
 def save_array(band):
     w = band.getRasterWidth()
     h = band.getRasterHeight()
-    band_data = np.zeros(w * h, np.float32)
+    band_data = numpy.zeros(w * h, numpy.float32)
     band.readPixels(0, 0, w, h, band_data)
     band_data.shape = h, w
     width = 12
@@ -108,7 +104,7 @@ def compute_vegeation_index(product, index):
     print("Start to compute:" + indices_expr[index])
     result = GPF.createProduct('BandMaths', parameters, product)
     print('Expression computed: ' + indices_expr[index])
-    print result.getBand(index)
+    print(result.getBand(index))
     return result.getBand(index)
 
 
