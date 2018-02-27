@@ -91,19 +91,22 @@ width="75%"></div>
 ## Instructions
 
 1. The user should have a Nuvla account.
-2. Start the application component 'cotec3' from EO_Sentinel_1.
-  https://nuv.la/module/EO_Sentinel_1/cotec3/
+2. Start the application component 'data-access' from EO-Data-Processing.
+   https://nuv.la/module/EO-Data-Processing/data-access
 3. Connect via ssh to the started machine, this repos should be already cloned inside it.
 4. Put the user S3 credentials' in the *credentials* file and
-   copy into the */root/.aws* directory.
+   copy into the *~/.aws* directory.
 
   ```
   $ cd data-access
   $ mkdir -p ~/.aws/
   $ cp credentials ~/.aws/
+  $ cp config ~/.aws/
   ```
 
-Edit ~/.aws/credentials to set your AWS credentials there.
+Edit ~/.aws/credentials to set your AWS credentials and if required the
+custom S3 endpoint. In case your custom S3 endpoint supports only S3
+Sigv2 you should check `config` file for the extra configuration.
 
 5. Run the main script.
 

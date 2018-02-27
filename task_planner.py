@@ -3,10 +3,14 @@ import multiprocessing
 import proc_runner
 import snap_op as snap
 
+# bucket = 'eodata'
+# aws
 bucket = 'sixsq.eoproc'
 
-products = ['S2A_OPER_PRD_MSIL1C_PDMC_20151230T202002_R008_V20151230T105153_20151230T105153.SAFE',
-            'S2A_MSIL1C_20170202T090201_N0204_R007_T35SNA_20170202T090155.SAFE',
+#products = ['S2A_OPER_PRD_MSIL1C_PDMC_20151230T202002_R008_V20151230T105153_20151230T105153.SAFE',
+#            'S2A_MSIL1C_20170202T090201_N0204_R007_T35SNA_20170202T090155.SAFE',
+#            'S2A_MSIL1C_20170617T012701_N0205_R074_T54SUF_20170617T013216.SAFE']
+products = ['S2A_MSIL1C_20170202T090201_N0204_R007_T35SNA_20170202T090155.SAFE',
             'S2A_MSIL1C_20170617T012701_N0205_R074_T54SUF_20170617T013216.SAFE']
 
 meta_file_dict = {'S2A_MTD': 'MTD_MSIL1C.xml'}
@@ -44,5 +48,5 @@ if __name__ == '__main__':
 
     job0 = [products[0], snap.main, tasks0]
     job1 = [products[1], snap.main, tasks1]
-    # main([job0, job1])
-    main([job0])
+    main([job0, job1])
+    #main([job0])

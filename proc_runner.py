@@ -29,34 +29,28 @@ class download_decorator(object):
             print("keys found for @%s, %s" % (multiprocessing.current_process().name, id) +
                   ', '.join(k for k in self.index if Shared.shared.dict[k]))
             rdm_sleep(1)
-        return (partial(self.target, params=self.params))
+        return partial(self.target, params=self.params)
         # return self.target(pm.get_meta_from_prod(self.product), self.params)
 
     def run_download_manager(self):
 
-        def create_process(self):
-            whoaim("the download manager process.")
-            object_list = [
-                k for k in Shared.shared.dict.keys() if k in self.bands_loc.keys()]
+        def create_process(bands_loc, metadata_loc):
+            whoaim("the download manager process for metadata and bands.")
+            object_list = [k for k in Shared.shared.dict.keys() if k in bands_loc.keys()]
             print("Bands selected: " + str(object_list))
             meta = threading.Thread(target=prdl.get_product_metadata,
-                                    args=(self.metadata_loc,
-                                          bucket_id))
+                                    args=(metadata_loc, bucket_id))
 
             bands = threading.Thread(target=prdl.get_product_data,
-                                     args=(self.bands_loc,
-                                           bucket_id,
-                                           object_list))
+                                     args=(bands_loc, bucket_id, object_list))
             meta.start()
             meta.join()  # Can be optimized
             bands.start()
             bands.join()
 
         def download_manager():
-            bucket_id = 'sixsq.eoproc'
-            self.bands_loc, self.metadata_loc = prdl.init(
-                bucket_id, self.product)
-            create_process(self)
+            bands_loc, metadata_loc = prdl.init(bucket_id, self.product)
+            create_process(bands_loc, metadata_loc)
 
         downlad_manager_daemon = Process(target=download_manager)
         downlad_manager_daemon.daemon = False
@@ -64,8 +58,7 @@ class download_decorator(object):
         downlad_manager_daemon.join()
 
     def register(self):
-        valid_index = [
-            key for key in self.index if key not in Shared.shared.dict.keys()]
+        valid_index = [key for key in self.index if key not in Shared.shared.dict]
         for v in valid_index:
             Shared.shared.write(v, False)
         print("Objects: %s registered in shared object" % ','.join(self.index))
@@ -103,4 +96,7 @@ def main(funk, index):
     pool.join()
 
 
+# exo
+# bucket_id = 'eodata'
+# aws
 bucket_id = 'sixsq.eoproc'

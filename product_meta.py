@@ -8,4 +8,4 @@ def get_meta_from_prod(p):
     else:
         foo = p.split('_')[1] + '.xml'
         bar = p + '/MTD_'
-    return (bar + foo)
+    return bar + foo
