@@ -17,11 +17,6 @@ logger = get_logger('snap-op')
 ''' Read, resample, subset, and compute the vegetation indices of SENTINEL-2
     products'''
 
-indices_expr = {'ndvi': '(B7 + B4) != 0 ? (B7 - B4) / (B7 + B4) : -2',
-                'ndi45': '(B5 + B4) != 0 ? (B5 - B4) / (B5 + B4) : -2',
-                'gndvi': '(B7 + B3) != 0 ? (B7 - B3) / (B7 + B3) : -2'}
-
-
 def _log_product_info(product):
     logger.info("Product: %s, %d x %d pixels" %
                 (product.getName(), product.getSceneRasterWidth(),
@@ -81,9 +76,8 @@ def save_array(band):
     plt.savefig(band.getName() + '.jpg')
 
 
-def compute_vegetation_index(product, index):
-    logger.info(">>> Compute vegetation index...")
-    index = ''.join(index)
+def compute_vegetation_index(product, index, indices_expr):
+    logger.info(">>> Compute vegetation index... %s" % index)
     GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
     HashMap = jpy.get_type('java.util.HashMap')
     BandDescriptor = jpy.get_type('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor')
@@ -99,14 +93,16 @@ def compute_vegetation_index(product, index):
     result = GPF.createProduct('BandMaths', parameters, product)
     logger.info('Expression computed: ' + indices_expr[index])
     logger.info('Result: %s' % result.getBand(index))
-    logger.info(">>> Compute vegetation index... done.")
+    logger.info(">>> Compute vegetation index... %s done." % index)
     return result.getBand(index)
 
 
-def main(product, params):
+def main(product, index, indices_expr):
+    logger.info('snap_op main %s %s %s' % (product, index, indices_expr))
     product = read_product(product)
     product = resample(product, 60)
-    compute_vegetation_index(product, params)
+    subproduct = subset(product)
+    compute_vegetation_index(product, index, indices_expr)
 
 
 if __name__ == '__main__':

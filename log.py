@@ -6,7 +6,7 @@ LOG_HANDLER = 'file'
 LOG_FILE = 'eo-data-access.log'
 
 FORMAT_FIELD_SEP = ' '
-FORMAT = '%(asctime)s{0}%(name)s{0}%(levelname)s{0}%(message)s'.format(FORMAT_FIELD_SEP)
+FORMAT = '%(asctime)s{0}%(threadName)s{0}%(name)s{0}%(levelname)s{0}%(message)s'.format(FORMAT_FIELD_SEP)
 FORMAT_DATE = '%Y-%m-%dT%H:%M:%SZ'
 
 
@@ -18,7 +18,7 @@ def get_logger(name=__name__, log_level=None, log_handler=None):
             log_level = LOG_LEVEL
     if log_handler is None:
         try:
-            log_handler = logging.getLevelName(config_get('log_handler').strip())
+            log_handler = config_get('log_handler').strip()
         except Exception:
             log_handler = LOG_HANDLER
     if log_handler == 'console':

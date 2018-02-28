@@ -24,6 +24,7 @@ import boto3
 from boto3.s3.transfer import TransferConfig
 log_level = logging.getLevelName(config_get('log_level').strip())
 boto3.set_stream_logger(name='botocore', level=log_level)
+logging.getLogger("botocore.vendored.requests.packages.urllib3.connectionpool").setLevel(logging.WARNING)
 
 import Shared
 import product_meta as pm
@@ -62,9 +63,9 @@ def _download_obj(obj, bucket_id):
     s3 = boto3.resource('s3', endpoint_url=endpoint_url)
     try:
         t0 = time.time()
-        logger.info('%s - start object download' % obj)
+        logger.debug('%s - start object download' % obj)
         s3.Bucket(bucket_id).download_file(obj, obj, Config=config)
-        logger.info('%s - finish object download. Time took: %0.3f' % (obj, time.time() - t0))
+        logger.debug('%s - finish object download. Time took: %0.3f' % (obj, time.time() - t0))
     except OSError as ex:
         msg = "Failed to download %s from %s." % (obj, bucket_id)
         logger.info(msg)
@@ -111,8 +112,7 @@ def _locate_bands(product, meta, file_keys, bucket_id):
     bands = {}
     for child in root[0][0][-1][0][0]:
         band = child.text
-        bands[band.split(
-            '_')[-1]] = ''.join([f for f in file_keys if f.find(band) != -1])
+        bands[band.split('_')[-1]] = ''.join([f for f in file_keys if f.find(band) != -1])
     return bands
 
 
@@ -144,7 +144,7 @@ def get_product_data(bands_dict, bucket_id, targets=None):
     def value2key(value):
         return bands_dict.keys()[bands_dict.values().index(value)]
 
-    def cb(band):
+    def callback(band):
         band_key = value2key(band)
         logger.info("%s downloaded." % band_key)
         Shared.shared.write(band_key, True)
@@ -158,7 +158,7 @@ def get_product_data(bands_dict, bucket_id, targets=None):
     logger.info("Product data: starting download of %s" % str(bands))
     res = []
     for band in bands:
-        res.append(pool.apply_async(_download_obj, args=(band, bucket_id), callback=cb))
+        res.append(pool.apply_async(_download_obj, args=(band, bucket_id), callback=callback))
     # logger.info('get_product_data: results list -> %s' % res)
 
     pool.close()

@@ -23,32 +23,36 @@ def MyProc(meta, params):
     return "About to process %s with parameters %s" % (str(meta), str(params))
 
 
-def main(jobs):
+def main(jobs, indices_expr):
     logger.info("%d cpu available" % multiprocessing.cpu_count())
 
     for job in jobs:
         prod, proc_func, tasks = job
-        proc_runner.main(proc_func, [prod, tasks])
+        map_arg = {'product': prod,
+                   'tasks': tasks,
+                   'indices_expr': indices_expr}
+        proc_runner.main(proc_func, map_arg)
 
 
 if __name__ == '__main__':
+
+    indices_expr = {'ndvi': '(B7 + B4) != 0 ? (B7 - B4) / (B7 + B4) : -2',
+                    'ndi45': '(B5 + B4) != 0 ? (B5 - B4) / (B5 + B4) : -2',
+                    'gndvi': '(B7 + B3) != 0 ? (B7 - B3) / (B7 + B3) : -2'}
     task1 = {
         'bands': ['B04', 'B07'],
-        'params': ['ndvi']
+        'index': 'ndvi'
     }
     task2 = {
         'bands': ['B05', 'B04'],
-        'params': ['ndi45']
+        'index': 'ndi45'
     }
     task3 = {
         'bands': ['B03', 'B07'],
-        'params': ['gndvi']
+        'index': 'gndvi'
     }
 
-    tasks0 = [task1, task2, task3]
-    tasks1 = [task1, task2]
-
-    job0 = [products[0], snap.main, tasks0]
-    job1 = [products[1], snap.main, tasks1]
+    job0 = [products[0], snap.main, [task1, task2, task3]]
+    job1 = [products[1], snap.main, [task1, task2]]
     #main([job0, job1])
-    main([job0])
+    main([job0], indices_expr)
