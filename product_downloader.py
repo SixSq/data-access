@@ -158,8 +158,8 @@ def get_product_data(bands_dict, bucket_id, targets=None):
     logger.info("Product data: starting download of %s" % str(bands))
     res = []
     for band in bands:
+        logger.info('%s starting downloading.' % value2key(band))
         res.append(pool.apply_async(_download_obj, args=(band, bucket_id), callback=callback))
-    # logger.info('get_product_data: results list -> %s' % res)
 
     pool.close()
     pool.join()
