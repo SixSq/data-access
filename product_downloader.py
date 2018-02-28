@@ -68,7 +68,7 @@ def _download_obj(obj, bucket_id):
         logger.debug('%s - finish object download. Time took: %0.3f' % (obj, time.time() - t0))
     except OSError as ex:
         msg = "Failed to download %s from %s." % (obj, bucket_id)
-        logger.info(msg)
+        logger.error(msg)
         raise Exception('%s %s' % (msg, 'Error: %s' % ex))
     return obj
 
