@@ -9,6 +9,8 @@ import NoDaemonProcess as ndp
 import Shared
 import product_downloader as prdl
 import product_meta as pm
+from log import get_logger
+logger = get_logger('proc-runner')
 
 ''' Library  of communicating processes over a shared object
     index:  list of objects
@@ -26,7 +28,7 @@ class download_decorator(object):
         whoaim("a process assigned to object %s" % self.index)
         self.register()
         while not all(Shared.shared.dict[k] for k in self.index):
-            print("keys found for @%s, %s" % (multiprocessing.current_process().name, id) +
+            logger.info('keys found for @%s, %s - ' % multiprocessing.current_process().name +
                   ', '.join(k for k in self.index if Shared.shared.dict[k]))
             rdm_sleep(1)
         return partial(self.target, params=self.params)
@@ -37,7 +39,7 @@ class download_decorator(object):
         def create_process(bands_loc, metadata_loc):
             whoaim("the download manager process for metadata and bands.")
             object_list = [k for k in Shared.shared.dict.keys() if k in bands_loc.keys()]
-            print("Bands selected: " + str(object_list))
+            logger.info("Bands selected: " + str(object_list))
             meta = threading.Thread(target=prdl.get_product_metadata,
                                     args=(metadata_loc, bucket_id))
 
@@ -61,7 +63,7 @@ class download_decorator(object):
         valid_index = [key for key in self.index if key not in Shared.shared.dict]
         for v in valid_index:
             Shared.shared.write(v, False)
-        print("Objects: %s registered in shared object" % ','.join(self.index))
+        logger.info("Objects: %s registered in shared object" % ','.join(self.index))
         rdm_sleep()
         Shared.shared.dict["nbproc"] += -1
         if Shared.shared.dict["nbproc"] == 0:
@@ -74,7 +76,7 @@ def rdm_sleep(offset=0):
 
 
 def whoaim(id):
-    print("I'm running on CPU #%s and I am %s" % (multiprocessing.current_process().name, id))
+    logger.info("I'm running on CPU #%s and I am %s" % (multiprocessing.current_process().name, id))
 
 
 def main(funk, index):

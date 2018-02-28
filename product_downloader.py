@@ -28,6 +28,9 @@ boto3.set_stream_logger(name='botocore', level=log_level)
 import Shared
 import product_meta as pm
 
+from log import get_logger
+logger = get_logger('product-downloader')
+
 endpoint_url = config_get('endpoint_url')
 
 # Multipart mode paramaters
@@ -59,12 +62,12 @@ def _download_obj(obj, bucket_id):
     s3 = boto3.resource('s3', endpoint_url=endpoint_url)
     try:
         t0 = time.time()
-        print('%s - start object download' % obj)
+        logger.info('%s - start object download' % obj)
         s3.Bucket(bucket_id).download_file(obj, obj, Config=config)
-        print('%s - finish object download. Time took: %0.3f' % (obj, time.time() - t0))
+        logger.info('%s - finish object download. Time took: %0.3f' % (obj, time.time() - t0))
     except OSError as ex:
         msg = "Failed to download %s from %s." % (obj, bucket_id)
-        print(msg)
+        logger.info(msg)
         raise Exception('%s %s' % (msg, 'Error: %s' % ex))
     return obj
 
@@ -97,7 +100,7 @@ def _locate_bands(product, meta, file_keys, bucket_id):
     """
 
     metadata_file = meta
-    print("Determine bands' location from " + metadata_file)
+    logger.info("Determine bands' location from " + metadata_file)
     s3 = boto3.resource('s3', endpoint_url=endpoint_url)
     obj = s3.Object(bucket_id, metadata_file)
     data = io.BytesIO()
@@ -123,10 +126,10 @@ def get_product_metadata(keys, bucket_id):
     pool = ThreadPool(processes=len(keys))
     _get_obj = partial(_download_obj, bucket_id=bucket_id)
     t0 = time.time()
-    print("Metadata: starting download.")
+    logger.info("Metadata: starting download.")
     pool.map(_get_obj, keys)
     Shared.shared.write('meta', True)
-    print("Metadata: finished downloading. Time took: %0.3f" % (time.time() - t0))
+    logger.info("Metadata: finished downloading. Time took: %0.3f" % (time.time() - t0))
 
 
 def get_product_data(bands_dict, bucket_id, targets=None):
@@ -143,7 +146,7 @@ def get_product_data(bands_dict, bucket_id, targets=None):
 
     def cb(band):
         band_key = value2key(band)
-        print("%s downloaded." % band_key)
+        logger.info("%s downloaded." % band_key)
         Shared.shared.write(band_key, True)
 
     if targets:
@@ -152,11 +155,11 @@ def get_product_data(bands_dict, bucket_id, targets=None):
         bands = bands_dict.values()
 
     pool = ThreadPool(processes=len(bands))
-    print("Product data: starting download of %s" % str(bands))
+    logger.info("Product data: starting download of %s" % str(bands))
     res = []
     for band in bands:
         res.append(pool.apply_async(_download_obj, args=(band, bucket_id), callback=cb))
-    # print('get_product_data: results list -> %s' % res)
+    # logger.info('get_product_data: results list -> %s' % res)
 
     pool.close()
     pool.join()

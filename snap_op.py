@@ -11,8 +11,10 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy
 
+from log import get_logger
+logger = get_logger('snap-op')
 
-''' Read resample, subset, and compute the vegetation indices of SENTINEL-2
+''' Read, resample, subset, and compute the vegetation indices of SENTINEL-2
     products'''
 
 indices_expr = {'ndvi': '(B7 + B4) != 0 ? (B7 - B4) / (B7 + B4) : -2',
@@ -20,40 +22,33 @@ indices_expr = {'ndvi': '(B7 + B4) != 0 ? (B7 - B4) / (B7 + B4) : -2',
                 'gndvi': '(B7 + B3) != 0 ? (B7 - B3) / (B7 + B3) : -2'}
 
 
-def read_product(f, meta=None):
-    print(os.getcwd() + '/' + f)
-    product = ProductIO.readProduct(os.getcwd() + '/' + f)
-    width = product.getSceneRasterWidth()
-    height = product.getSceneRasterHeight()
-    name = product.getName()
-    description = product.getDescription()
-    band_names = product.getBandNames()
-    print("Product: %s, %d x %d pixels") % (name, width, height)
-    print("Bands:   %s") % (list(band_names))
+def _log_product_info(product):
+    logger.info("Product: %s, %d x %d pixels" %
+                (product.getName(), product.getSceneRasterWidth(),
+                 product.getSceneRasterHeight()))
+    logger.info("Bands:   %s" % list(product.getBandNames()))
 
+
+def read_product(f):
+    product = ProductIO.readProduct(os.getcwd() + '/' + f)
+    _log_product_info(product)
     return product
 
 
 def resample(product, params):
-    #    product = read_product(product)
-    width = product.getSceneRasterWidth()
-    height = product.getSceneRasterHeight()
-    name = product.getName()
-    description = product.getDescription()
-    band_names = product.getBandNames()
-
-    print("Product: %s, %d x %d pixels" % (name, width, height))
-
-    print("Bands:   %s" % (list(band_names)))
-
+    logger.info(">>> Re-sampling...")
+    _log_product_info(product)
     HashMap = jpy.get_type('java.util.HashMap')
     parameters = HashMap()
     parameters.put('targetResolution', params)
     result = GPF.createProduct('Resample', parameters, product)
+    logger.info(">>> Re-sampling... done.")
     return result
 
 
 def subset(product):
+    logger.info(">>> Subsetting...")
+    _log_product_info(product)
     SubsetOp = jpy.get_type('org.esa.snap.core.gpf.common.SubsetOp')
 #    WKTReader = jpy.get_type('com.vividsolutions.jts.io.WKTReader')
 #    wkt = 'POLYGON ((27.350865857300093 36.824908050376905,
@@ -66,7 +61,7 @@ def subset(product):
     op.setSourceProduct(product)
     op.setRegion(Rectangle(0, 500, 500, 500))
     sub_product = op.getTargetProduct()
-    print("subset product ready")
+    logger.info(">>> Subsetting... done.")
     return sub_product
 
 
@@ -86,32 +81,32 @@ def save_array(band):
     plt.savefig(band.getName() + '.jpg')
 
 
-def compute_vegeation_index(product, index):
+def compute_vegetation_index(product, index):
+    logger.info(">>> Compute vegetation index...")
     index = ''.join(index)
     GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
     HashMap = jpy.get_type('java.util.HashMap')
-    BandDescriptor = jpy.get_type(
-        'org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor')
+    BandDescriptor = jpy.get_type('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor')
     targetBand = BandDescriptor()
     targetBand.name = index
     targetBand.type = 'float32'
     targetBand.expression = indices_expr[index]
-    targetBands = jpy.array(
-        'org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor', 1)
+    targetBands = jpy.array('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor', 1)
     targetBands[0] = targetBand
     parameters = HashMap()
     parameters.put('targetBands', targetBands)
-    print("Start to compute:" + indices_expr[index])
+    logger.info("Start to compute:" + indices_expr[index])
     result = GPF.createProduct('BandMaths', parameters, product)
-    print('Expression computed: ' + indices_expr[index])
-    print(result.getBand(index))
+    logger.info('Expression computed: ' + indices_expr[index])
+    logger.info('Result: %s' % result.getBand(index))
+    logger.info(">>> Compute vegetation index... done.")
     return result.getBand(index)
 
 
 def main(product, params):
     product = read_product(product)
     product = resample(product, 60)
-    compute_vegeation_index(product, params)
+    compute_vegetation_index(product, params)
 
 
 if __name__ == '__main__':

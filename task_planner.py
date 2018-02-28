@@ -2,6 +2,8 @@ import multiprocessing
 
 import proc_runner
 import snap_op as snap
+from log import get_logger
+logger = get_logger('task-planner')
 
 # bucket = 'eodata'
 # aws
@@ -18,11 +20,11 @@ meta_file_dict = {'S2A_MTD': 'MTD_MSIL1C.xml'}
 
 # Import your proces or paste it here
 def MyProc(meta, params):
-    return ("About to process %s with parameters %s" % (str(meta), str(params)))
+    return "About to process %s with parameters %s" % (str(meta), str(params))
 
 
 def main(jobs):
-    print("%d cpu available" % multiprocessing.cpu_count())
+    logger.info("%d cpu available" % multiprocessing.cpu_count())
 
     for job in jobs:
         prod, proc_func, tasks = job
@@ -48,5 +50,5 @@ if __name__ == '__main__':
 
     job0 = [products[0], snap.main, tasks0]
     job1 = [products[1], snap.main, tasks1]
-    main([job0, job1])
-    #main([job0])
+    #main([job0, job1])
+    main([job0])
