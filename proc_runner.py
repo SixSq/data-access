@@ -32,6 +32,7 @@ class download_decorator(object):
         self.bands = task['bands']
         self.index = task['index']
         self.indices_expr = args[2]
+        self.s3conf = args[3]
         whoaim("a process assigned to object %s" % self.bands)
         self.register()
         while not all(Shared.shared.dict[k] for k in self.bands):
@@ -48,17 +49,17 @@ class download_decorator(object):
             object_list = [k for k in Shared.shared.dict.keys() if k in bands_loc.keys()]
             logger.info("Bands selected: " + str(object_list))
             meta = threading.Thread(target=prdl.get_product_metadata,
-                                    args=(metadata_loc, bucket_id))
+                                    args=(metadata_loc, self.s3conf))
 
             bands = threading.Thread(target=prdl.get_product_data,
-                                     args=(bands_loc, bucket_id, object_list))
+                                     args=(bands_loc, self.s3conf, object_list))
             meta.start()
             meta.join()  # Can be optimized
             bands.start()
             bands.join()
 
         def download_manager():
-            bands_loc, metadata_loc = prdl.init(bucket_id, self.product)
+            bands_loc, metadata_loc = prdl.init(self.s3conf, self.product)
             create_process(bands_loc, metadata_loc)
 
         downlad_manager_daemon = Process(target=download_manager)
@@ -86,7 +87,7 @@ def whoaim(id):
     logger.info("I'm running on CPU #%s and I am %s" % (multiprocessing.current_process().name, id))
 
 
-def main(proc_func, args):
+def main(proc_func, args, s3conf):
     """
     :param proc_func: processing function
     :param args: {'product': '', 'tasks': [{'bands': [], 'index': ''},], 'indices_expr': {'index': 'expr',}}
@@ -104,13 +105,7 @@ def main(proc_func, args):
     for task in args['tasks']:
         pool.apply_async(
             download_decorator(proc_func),
-            args=(args['product'], task, args['indices_expr']),
+            args=(args['product'], task, args['indices_expr'], s3conf),
             callback=executor)
     pool.close()
     pool.join()
-
-
-# exo
-# bucket_id = 'eodata'
-# aws
-bucket_id = 'sixsq.eoproc'

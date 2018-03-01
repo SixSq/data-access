@@ -32,8 +32,6 @@ import product_meta as pm
 from log import get_logger
 logger = get_logger('product-downloader')
 
-endpoint_url = config_get('endpoint_url')
-
 # Multipart mode paramaters
 GB = 1024 ** 3
 config = TransferConfig(multipart_threshold=0.03 * GB,
@@ -44,7 +42,7 @@ config = TransferConfig(multipart_threshold=0.03 * GB,
  directories.'''
 
 
-def create_dir(abs_path):
+def _create_dir(abs_path):
     path = '/'.join(abs_path.split("/")[:-1])
     try:
         os.makedirs(path)
@@ -53,47 +51,47 @@ def create_dir(abs_path):
             raise
 
 
-def _download_obj(obj, bucket_id):
+def _download_obj(obj, s3conf):
     """Takes a single object's filename and downloads it locally.
     :param obj:
-    :param bucket_id:
+    :param s3conf:
     :return:
     """
-    create_dir(obj)
-    s3 = boto3.resource('s3', endpoint_url=endpoint_url)
+    _create_dir(obj)
+    s3 = boto3.resource('s3', endpoint_url=s3conf['endpoint_url'])
     try:
         t0 = time.time()
         logger.debug('%s - start object download' % obj)
-        s3.Bucket(bucket_id).download_file(obj, obj, Config=config)
+        s3.Bucket(s3conf['bucket_id']).download_file(obj, obj, Config=config)
         logger.debug('%s - finish object download. Time took: %0.3f' % (obj, time.time() - t0))
     except OSError as ex:
-        msg = "Failed to download %s from %s." % (obj, bucket_id)
+        msg = "Failed to download %s from %s." % (obj, s3conf['bucket_id'])
         logger.error(msg)
         raise Exception('%s %s' % (msg, 'Error: %s' % ex))
     return obj
 
 
-def _get_product_keys(bucket_id, f=""):
+def _get_product_keys(s3conf, f=""):
     """Lists the objects of an entire bucket or one of its directories.
 
-    :param bucket_id:
+    :param s3conf:
     :param f:
     :return:
     """
-    s3 = boto3.resource('s3', endpoint_url=endpoint_url)
-    bucket = s3.Bucket(bucket_id)
+    s3 = boto3.resource('s3', endpoint_url=s3conf['endpoint_url'])
+    bucket = s3.Bucket(s3conf['bucket_id'])
     objects = list(bucket.objects.filter(Prefix=f + '/'))
     return map(lambda x: x.Object().key, list(objects))
 
 
-def _locate_bands(product, meta, file_keys, bucket_id):
+def _locate_bands(product, meta, file_keys, s3conf):
     """From the product's info containted in the 'xml' tree we can extract the
     bands's filename.
 
     inputs
         product: string of the product's name
         file_keys: product objects' list
-        bucket_id: string of the bucket's name
+        s3conf: string of the bucket's name
 
     output
         bands: dictionary containing the product bands filename's
@@ -102,8 +100,8 @@ def _locate_bands(product, meta, file_keys, bucket_id):
 
     metadata_file = meta
     logger.info("Determine bands' location from " + metadata_file)
-    s3 = boto3.resource('s3', endpoint_url=endpoint_url)
-    obj = s3.Object(bucket_id, metadata_file)
+    s3 = boto3.resource('s3', endpoint_url=s3conf['endpoint_url'])
+    obj = s3.Object(s3conf['bucket_id'], metadata_file)
     data = io.BytesIO()
     # Since we use xml file only once we retrieve it as
     obj.download_fileobj(data)
@@ -116,15 +114,15 @@ def _locate_bands(product, meta, file_keys, bucket_id):
     return bands
 
 
-def get_product_metadata(keys, bucket_id):
+def get_product_metadata(keys, s3conf):
     """Takes an objects list and downloads it in parallel.
 
     :param keys:
-    :param bucket_id:
+    :param s3conf:
     :return:
     """
     pool = ThreadPool(processes=len(keys))
-    _get_obj = partial(_download_obj, bucket_id=bucket_id)
+    _get_obj = partial(_download_obj, s3conf=s3conf)
     t0 = time.time()
     logger.info("Metadata: starting download.")
     pool.map(_get_obj, keys)
@@ -132,11 +130,11 @@ def get_product_metadata(keys, bucket_id):
     logger.info("Metadata: finished downloading. Time took: %0.3f" % (time.time() - t0))
 
 
-def get_product_data(bands_dict, bucket_id, targets=None):
+def get_product_data(bands_dict, s3conf, targets=None):
     """Takes the bands dict and downloads the selected ones in parallel.
 
     :param bands_dict:
-    :param bucket_id:
+    :param s3conf:
     :param targets:
     :return:
     """
@@ -159,7 +157,7 @@ def get_product_data(bands_dict, bucket_id, targets=None):
     res = []
     for band in bands:
         logger.info('%s starting downloading.' % value2key(band))
-        res.append(pool.apply_async(_download_obj, args=(band, bucket_id), callback=callback))
+        res.append(pool.apply_async(_download_obj, args=(band, s3conf), callback=callback))
 
     pool.close()
     pool.join()
@@ -175,18 +173,17 @@ def _locate_metadata(files, bands):
     return [f for f in files if f not in bands]
 
 
-def init(bucket_id, product):
+def init(s3conf, product):
     """Returns the metadata filename list and a dictionary of
     the bands' filename indexed with their acronym (B1, B2, B3 ...).  This
     allows to download the metadata and the required bands via the functions
     'get_product_metadata' and 'get_product_data'.
 
-    :param bucket_id:
+    :param s3conf:
     :param product:
     :return:
     """
-    product_file_list = _get_product_keys(bucket_id, product)
-    bands_index = _locate_bands(
-        product, pm.get_meta_from_prod(product), product_file_list, bucket_id)
+    product_file_list = _get_product_keys(s3conf, product)
+    bands_index = _locate_bands(product, pm.get_meta_from_prod(product), product_file_list, s3conf)
     metadata_loc = _locate_metadata(product_file_list, bands_index.values())
     return bands_index, metadata_loc

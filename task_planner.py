@@ -1,13 +1,10 @@
 import multiprocessing
+import sys
 
 import proc_runner
 import snap_op as snap
 from log import get_logger
 logger = get_logger('task-planner')
-
-# bucket = 'eodata'
-# aws
-bucket = 'sixsq.eoproc'
 
 #products = ['S2A_OPER_PRD_MSIL1C_PDMC_20151230T202002_R008_V20151230T105153_20151230T105153.SAFE',
 #            'S2A_MSIL1C_20170202T090201_N0204_R007_T35SNA_20170202T090155.SAFE',
@@ -23,7 +20,7 @@ def MyProc(meta, params):
     return "About to process %s with parameters %s" % (str(meta), str(params))
 
 
-def main(jobs, indices_expr):
+def main(jobs, indices_expr, s3conf):
     logger.info("%d cpu available" % multiprocessing.cpu_count())
 
     for job in jobs:
@@ -31,7 +28,7 @@ def main(jobs, indices_expr):
         map_arg = {'product': prod,
                    'tasks': tasks,
                    'indices_expr': indices_expr}
-        proc_runner.main(proc_func, map_arg)
+        proc_runner.main(proc_func, map_arg, s3conf)
 
 
 if __name__ == '__main__':
@@ -55,4 +52,8 @@ if __name__ == '__main__':
     job0 = [products[0], snap.main, [task1, task2, task3]]
     job1 = [products[1], snap.main, [task1, task2]]
     #main([job0, job1])
-    main([job0], indices_expr)
+    endpoint_url = sys.argv[1]
+    bucket_id = sys.argv[2]
+    s3conf = {'endpoint_url': endpoint_url,
+              'bucket_id': bucket_id}
+    main([job0], indices_expr, s3conf)
