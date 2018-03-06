@@ -8,8 +8,8 @@ class Shared:
     def __init__(self):
         self.dict = Manager().dict()
 
-    def write(self, index, msg):
-        self.dict[index] = msg
+    def write(self, k, v):
+        self.dict[k] = v
 
 
 shared = Shared()

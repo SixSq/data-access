@@ -1,4 +1,7 @@
 import os
+import time
+from random import randint
+
 from ConfigParser import SafeConfigParser
 
 CONFIG_FILE = os.path.expanduser('~/.aws/credentials')
@@ -21,3 +24,5 @@ def config_get(opt, default=''):
     return parser.get(CONFIG_SECTION, opt, default)
 
 
+def rdm_sleep(offset=0):
+    time.sleep(.001 * randint(10, 100) + offset)

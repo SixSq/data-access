@@ -19,7 +19,7 @@ import os
 import time
 import xml.etree.ElementTree as ET
 
-from utils import config_get
+from utils import config_get, rdm_sleep
 import boto3
 from boto3.s3.transfer import TransferConfig
 log_level = logging.getLevelName(config_get('log_level').strip())
@@ -30,13 +30,13 @@ import Shared
 import product_meta as pm
 
 from log import get_logger
-logger = get_logger('product-downloader')
+logger = get_logger()
 
 # Multipart mode paramaters
 GB = 1024 ** 3
 config = TransferConfig(multipart_threshold=0.03 * GB,
                         max_concurrency=20,
-                        use_threads=True)  # max_concurency
+                        use_threads=True)
 
 ''' Takes the absolute path of a file and create locally the unexisting
  directories.'''
@@ -57,17 +57,17 @@ def _download_obj(obj, s3conf):
     :param s3conf:
     :return:
     """
-    _create_dir(obj)
-    s3 = boto3.resource('s3', endpoint_url=s3conf['endpoint_url'])
-    try:
-        t0 = time.time()
-        logger.debug('%s - start object download' % obj)
-        s3.Bucket(s3conf['bucket_id']).download_file(obj, obj, Config=config)
-        logger.debug('%s - finish object download. Time took: %0.3f' % (obj, time.time() - t0))
-    except OSError as ex:
-        msg = "Failed to download %s from %s." % (obj, s3conf['bucket_id'])
-        logger.error(msg)
-        raise Exception('%s %s' % (msg, 'Error: %s' % ex))
+    # _create_dir(obj)
+    # s3 = boto3.resource('s3', endpoint_url=s3conf['endpoint_url'])
+    # try:
+    #     t0 = time.time()
+    #     logger.debug('%s - start object download' % obj)
+    #     s3.Bucket(s3conf['bucket_id']).download_file(obj, obj, Config=config)
+    #     logger.debug('%s - finish object download. Time took: %0.3f' % (obj, time.time() - t0))
+    # except OSError as ex:
+    #     msg = "Failed to download %s from %s." % (obj, s3conf['bucket_id'])
+    #     logger.error(msg)
+    #     raise Exception('%s %s' % (msg, 'Error: %s' % ex))
     return obj
 
 
@@ -144,20 +144,27 @@ def get_product_data(bands_dict, s3conf, targets=None):
 
     def callback(band):
         band_key = value2key(band)
-        logger.info("%s downloaded." % band_key)
         Shared.shared.write(band_key, True)
+        logger.info("%s downloaded." % band_key)
 
     if targets:
         bands = [bands_dict[i] for i in targets]
     else:
         bands = bands_dict.values()
 
+    def obj_downloader(band, bucket_id):
+        t0 = time.time()
+        bname = value2key(band)
+        logger.info('%s - start object download' % bname)
+        obj = _download_obj(band, bucket_id)
+        logger.info('%s - finish object download. Time took: %0.3f' % (bname, time.time() - t0))
+        return obj
+
     pool = ThreadPool(processes=len(bands))
     logger.info("Product data: starting download of %s" % str(bands))
     res = []
     for band in bands:
-        logger.info('%s starting downloading.' % value2key(band))
-        res.append(pool.apply_async(_download_obj, args=(band, s3conf), callback=callback))
+        res.append(pool.apply_async(obj_downloader, args=(band, s3conf), callback=callback))
 
     pool.close()
     pool.join()

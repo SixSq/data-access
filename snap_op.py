@@ -1,62 +1,97 @@
+from functools import wraps
 import os
 import sys
+import time
+
 sys.path.append(os.path.expanduser('~/.snap/snap-python'))
 import snappy
 from snappy import ProductIO
+
 jpy = snappy.jpy
 from snappy import GPF
 from snappy import Rectangle
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy
 
 from log import get_logger
-logger = get_logger('snap-op')
+
+logger = get_logger()
 
 ''' Read, resample, subset, and compute the vegetation indices of SENTINEL-2
     products'''
 
+
 def _log_product_info(product):
-    logger.info("Product: %s, %d x %d pixels" %
-                (product.getName(), product.getSceneRasterWidth(),
-                 product.getSceneRasterHeight()))
-    logger.info("Bands:   %s" % list(product.getBandNames()))
+    width = product.getSceneRasterWidth()
+    height = product.getSceneRasterHeight()
+    name = product.getName()
+    description = product.getDescription()
+    band_names = product.getBandNames()
+
+    logger.info("Product:     %s, %s" % (name, description))
+    logger.info("Raster size: %d x %d pixels" % (width, height))
+    logger.info("Start time:  " + str(product.getStartTime()))
+    logger.info("End time:    " + str(product.getEndTime()))
+    logger.info("Bands:       %s" % (list(band_names)))
 
 
-def read_product(f):
-    product = ProductIO.readProduct(os.getcwd() + '/' + f)
+def start_stop(msg):
+    def func_decor(func):
+        # FIXME: %(funcName)s in the logger still prints the name of the wrapper function.
+        @wraps(func)
+        def func_wrap(*args, **kwargs):
+            t0 = time.time()
+            logger.info('>>> Start: %s', msg)
+            res = func(*args, **kwargs)
+            logger.info('>>> Finish: %s. Time took: %.3f', msg, time.time() - t0)
+            return res
+        func_wrap.__name__ = func.__name__
+        return func_wrap
+
+    return func_decor
+
+
+@start_stop('read product')
+def read_product(fn):
+    product = ProductIO.readProduct(os.getcwd() + '/' + fn)
     _log_product_info(product)
     return product
 
 
+@start_stop('write product')
+def write_product(product, veg_index):
+    fn = 'snappy_bmaths_output_%s_%s.dim' % (veg_index, product.getName())
+    fmt = 'BEAM-DIMAP'
+    ProductIO.writeProduct(product, fn, fmt)
+
+
+@start_stop('re-sampling')
 def resample(product, params):
-    logger.info(">>> Re-sampling...")
     _log_product_info(product)
     HashMap = jpy.get_type('java.util.HashMap')
     parameters = HashMap()
     parameters.put('targetResolution', params)
-    result = GPF.createProduct('Resample', parameters, product)
-    logger.info(">>> Re-sampling... done.")
-    return result
+    return GPF.createProduct('Resample', parameters, product)
 
 
+@start_stop('sub-setting')
 def subset(product):
-    logger.info(">>> Subsetting...")
     _log_product_info(product)
     SubsetOp = jpy.get_type('org.esa.snap.core.gpf.common.SubsetOp')
-#    WKTReader = jpy.get_type('com.vividsolutions.jts.io.WKTReader')
-#    wkt = 'POLYGON ((27.350865857300093 36.824908050376905,
-#		     27.76637805803395 36.82295594263548,
-#	 	     27.76444424458719 36.628100558767244,
-#                     27.349980428973755 36.63003894847389,
-#                    27.350865857300093 36.824908050376905))'
-#    geometry = WKTReader().read(wkt)
+    #    WKTReader = jpy.get_type('com.vividsolutions.jts.io.WKTReader')
+    #    wkt = 'POLYGON ((27.350865857300093 36.824908050376905,
+    #		     27.76637805803395 36.82295594263548,
+    #	 	     27.76444424458719 36.628100558767244,
+    #                     27.349980428973755 36.63003894847389,
+    #                    27.350865857300093 36.824908050376905))'
+    #    geometry = WKTReader().read(wkt)
     op = SubsetOp()
     op.setSourceProduct(product)
     op.setRegion(Rectangle(0, 500, 500, 500))
     sub_product = op.getTargetProduct()
-    logger.info(">>> Subsetting... done.")
     return sub_product
 
 
@@ -76,39 +111,54 @@ def save_array(band):
     plt.savefig(band.getName() + '.jpg')
 
 
-def compute_vegetation_index(product, index, indices_expr):
-    logger.info(">>> Compute vegetation index... %s" % index)
+@start_stop('compute vegetation index')
+def compute_vegetation_index(product, index, index_expr):
+    logger.info("vegetation index to compute: %s" % index)
     GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
     HashMap = jpy.get_type('java.util.HashMap')
     BandDescriptor = jpy.get_type('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor')
     targetBand = BandDescriptor()
     targetBand.name = index
     targetBand.type = 'float32'
-    targetBand.expression = indices_expr[index]
+    targetBand.expression = index_expr
     targetBands = jpy.array('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor', 1)
     targetBands[0] = targetBand
     parameters = HashMap()
     parameters.put('targetBands', targetBands)
-    logger.info("Start to compute:" + indices_expr[index])
+    logger.info("Start to compute expression:" + index_expr)
     result = GPF.createProduct('BandMaths', parameters, product)
-    logger.info('Expression computed: ' + indices_expr[index])
-    logger.info('Result: %s' % result.getBand(index))
-    logger.info(">>> Compute vegetation index... %s done." % index)
-    return result.getBand(index)
+    logger.info('Expression computed: ' + index_expr)
+    logger.info('Result: %s' % result)
+    return result
 
 
-def main(product, index, indices_expr):
-    logger.info('snap_op main %s %s %s' % (product, index, indices_expr))
-    product = read_product(product)
+@start_stop(__name__)
+def _main(product_fn_xml, veg_index, index_expr):
+    """
+
+    :param product_fn_xml: path to product's metadata xml
+    :param veg_index: vegetation index to compute
+    :param index_expr: expression to compute
+    :return:
+    """
+    logger.info('snap_op main - product: %s', product_fn_xml)
+    logger.info('snap_op main - vegetation index: %s', veg_index)
+    logger.info('snap_op main - expression: %s', index_expr)
+    product = read_product(product_fn_xml)
     product = resample(product, 60)
-    subproduct = subset(product)
-    compute_vegetation_index(product, index, indices_expr)
+    product = subset(product)
+    result = compute_vegetation_index(product, veg_index, index_expr)
+    write_product(result, veg_index)
+
+
+def main(product_fn_xml, index, index_expr):
+    "For calling from multi-threaded environment."
+    _main(product_fn_xml, index, index_expr)
 
 
 if __name__ == '__main__':
-    products = ['S2A_OPER_PRD_MSIL1C_PDMC_20151230T202002_R008_V20151230T105153_20151230T105153.SAFE',
-                'S2A_MSIL1C_20170202T090201_N0204_R007_T35SNA_20170202T090155.SAFE',
+    products = ['S2A_MSIL1C_20170202T090201_N0204_R007_T35SNA_20170202T090155.SAFE',
                 'S2A_MSIL1C_20170617T012701_N0205_R074_T54SUF_20170617T013216.SAFE']
 
-    meta = 'S2A_OPER_MTD_SAFL1C_PDMC_20151230T202002_R008_V20151230T105153_20151230T105153.xml'
-    main(products[0] + '/' + meta, 'ndvi')
+    meta = 'MTD_MSIL1C.xml'
+    _main(products[0] + '/' + meta, 'ndvi', '(B7 + B4) != 0 ? (B7 - B4) / (B7 + B4) : -2')

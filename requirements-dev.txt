@@ -1,5 +1,6 @@
 # python 3.4
 # snappy from http://step.esa.int/downloads/5.0/installers/
+# jpy
 boto3
 matplotlib
-#jpy
+multiprocessing_logging
