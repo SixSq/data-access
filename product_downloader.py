@@ -57,17 +57,17 @@ def _download_obj(obj, s3conf):
     :param s3conf:
     :return:
     """
-    # _create_dir(obj)
-    # s3 = boto3.resource('s3', endpoint_url=s3conf['endpoint_url'])
-    # try:
-    #     t0 = time.time()
-    #     logger.debug('%s - start object download' % obj)
-    #     s3.Bucket(s3conf['bucket_id']).download_file(obj, obj, Config=config)
-    #     logger.debug('%s - finish object download. Time took: %0.3f' % (obj, time.time() - t0))
-    # except OSError as ex:
-    #     msg = "Failed to download %s from %s." % (obj, s3conf['bucket_id'])
-    #     logger.error(msg)
-    #     raise Exception('%s %s' % (msg, 'Error: %s' % ex))
+    _create_dir(obj)
+    s3 = boto3.resource('s3', endpoint_url=s3conf['endpoint_url'])
+    try:
+        t0 = time.time()
+        logger.debug('%s - start object download' % obj)
+        s3.Bucket(s3conf['bucket_id']).download_file(obj, obj, Config=config)
+        logger.debug('%s - finish object download. Time took: %0.3f' % (obj, time.time() - t0))
+    except OSError as ex:
+        msg = "Failed to download %s from %s." % (obj, s3conf['bucket_id'])
+        logger.error(msg)
+        raise Exception('%s %s' % (msg, 'Error: %s' % ex))
     return obj
 
 
