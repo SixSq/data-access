@@ -57,7 +57,7 @@ class download_decorator(object):
             logger.info('Keys found for @%s, %s', multiprocessing.current_process().name,
                         [k for k in self.bands if Shared.shared.dict[k]])
             rdm_sleep(1)
-        logger.info('The shared object after barrier: %s' % Shared.shared.dict)
+        logger.debug('The shared object after barrier: %s' % Shared.shared.dict)
 
 
     def _run_download_manager(self):
