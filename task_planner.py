@@ -1,5 +1,5 @@
-import multiprocessing
 import sys
+import multiprocessing
 
 import proc_runner
 import snap_op as snap
