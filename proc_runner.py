@@ -53,12 +53,10 @@ class download_decorator(object):
 
         # barrier until bands are downloaded
         while not all(Shared.shared.dict[k] for k in self.bands):
-            logger.info(Shared.shared.dict)
-            logger.info('Keys found for @%s, %s', multiprocessing.current_process().name,
-                        [k for k in self.bands if Shared.shared.dict[k]])
+            logger.debug('Keys found for @%s, %s', multiprocessing.current_process().name,
+                         [k for k in self.bands if Shared.shared.dict[k]])
             rdm_sleep(1)
         logger.debug('The shared object after barrier: %s' % Shared.shared.dict)
-
 
     def _run_download_manager(self):
 

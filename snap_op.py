@@ -135,7 +135,6 @@ def compute_vegetation_index(product, index, index_expr):
 @start_stop(__name__)
 def _main(product_fn_xml, veg_index, index_expr):
     """
-
     :param product_fn_xml: path to product's metadata xml
     :param veg_index: vegetation index to compute
     :param index_expr: expression to compute
@@ -148,6 +147,8 @@ def _main(product_fn_xml, veg_index, index_expr):
     product = resample(product, 60)
     product = subset(product)
     result = compute_vegetation_index(product, veg_index, index_expr)
+    logger.info('Final result computed.')
+    _log_product_info(result)
     write_product(result, veg_index)
 
 

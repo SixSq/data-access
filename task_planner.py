@@ -7,14 +7,25 @@ from log import get_logger
 
 logger = get_logger()
 
-products = [
-    'S2A_MSIL1C_20170202T090201_N0204_R007_T35SNA_20170202T090155.SAFE',
-    'S2A_MSIL1C_20170617T012701_N0205_R074_T54SUF_20170617T013216.SAFE'
-]
+indices_expr = {'ndvi': '(B7 + B4) != 0 ? (B7 - B4) / (B7 + B4) : -2',
+                'ndi45': '(B5 + B4) != 0 ? (B5 - B4) / (B5 + B4) : -2',
+                'gndvi': '(B7 + B3) != 0 ? (B7 - B3) / (B7 + B3) : -2'}
+task1 = {
+    'bands': ['B04', 'B07'],
+    'index': 'ndvi'
+}
+task2 = {
+    'bands': ['B05', 'B04'],
+    'index': 'ndi45'
+}
+task3 = {
+    'bands': ['B03', 'B07'],
+    'index': 'gndvi'
+}
 
-# Import your proces or paste it here
-def MyProc(meta, params):
-    return "About to process %s with parameters %s" % (str(meta), str(params))
+tasks_map = {'ndvi': task1,
+             'ndi45': task2,
+             'gndvi': task3}
 
 
 def main(jobs, indices_expr, s3conf):
@@ -25,32 +36,40 @@ def main(jobs, indices_expr, s3conf):
         map_arg = {'product': prod,
                    'tasks': tasks,
                    'indices_expr': indices_expr}
+        logger.info('will run... %s', map_arg)
         proc_runner.main(proc_func, map_arg, s3conf)
 
 
-if __name__ == '__main__':
-    indices_expr = {'ndvi': '(B7 + B4) != 0 ? (B7 - B4) / (B7 + B4) : -2',
-                    'ndi45': '(B5 + B4) != 0 ? (B5 - B4) / (B5 + B4) : -2',
-                    'gndvi': '(B7 + B3) != 0 ? (B7 - B3) / (B7 + B3) : -2'}
-    task1 = {
-        'bands': ['B04', 'B07'],
-        'index': 'ndvi'
-    }
-    task2 = {
-        'bands': ['B05', 'B04'],
-        'index': 'ndi45'
-    }
-    task3 = {
-        'bands': ['B03', 'B07'],
-        'index': 'gndvi'
-    }
+def _check_args():
+    if len(sys.argv) < 5:
+        usage = """required args: <s3_endpoint_url> <s3_bucket> <prod,..> <index,..>
+prod - e.g. S2A_MSIL1C_20170202T090201_N0204_R007_T35SNA_20170202T090155.SAFE
+index - any of or all ndvi,ndi45,gndvi"""
+        print(usage)
+        raise SystemExit(1)
 
-    job1 = [products[0], snap.main, [task1]]
-    job2 = [products[0], snap.main, [task1, task2]]
-    job3 = [products[0], snap.main, [task1, task2, task3]]
+
+def _get_s3_coords():
     endpoint_url = sys.argv[1]
     bucket_id = sys.argv[2]
-    s3conf = {'endpoint_url': endpoint_url,
-              'bucket_id': bucket_id}
-    main([job1], indices_expr, s3conf)
+    return {'endpoint_url': endpoint_url,
+            'bucket_id': bucket_id}
+
+
+def _build_jobs(processor):
+    products = sys.argv[3].split(',')
+    tasks_req = sys.argv[4].split(',')
+    tasks = []
+    for t in tasks_req:
+        tasks.append(tasks_map[t])
+    return [[prod, processor, tasks] for prod in products]
+
+
+if __name__ == '__main__':
+    _check_args()
+
+    main(_build_jobs(snap.main),
+         indices_expr,
+         _get_s3_coords())
+
     logger.info('success.')
