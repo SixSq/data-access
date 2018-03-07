@@ -19,7 +19,7 @@ import os
 import time
 import xml.etree.ElementTree as ET
 
-from utils import config_get, rdm_sleep
+from utils import config_get
 import boto3
 from boto3.s3.transfer import TransferConfig
 log_level = logging.getLevelName(config_get('log_level').strip())
