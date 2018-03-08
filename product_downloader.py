@@ -114,7 +114,7 @@ def _locate_bands(product, meta, file_keys, s3conf):
     return bands
 
 
-def get_product_metadata(keys, s3conf):
+def get_product_metadata(keys, s3conf, product):
     """Takes an objects list and downloads it in parallel.
 
     :param keys:
@@ -126,11 +126,11 @@ def get_product_metadata(keys, s3conf):
     t0 = time.time()
     logger.info("Metadata: starting download.")
     pool.map(_get_obj, keys)
-    Shared.shared.write('meta', True)
+    Shared.shared.write(product+'meta', True)
     logger.info("Metadata: finished downloading. Time took: %0.3f" % (time.time() - t0))
 
 
-def get_product_data(bands_dict, s3conf, targets=None):
+def get_product_data(bands_dict, s3conf, product, targets=None):
     """Takes the bands dict and downloads the selected ones in parallel.
 
     :param bands_dict:
@@ -144,7 +144,7 @@ def get_product_data(bands_dict, s3conf, targets=None):
 
     def callback(band):
         band_key = value2key(band)
-        Shared.shared.write(band_key, True)
+        Shared.shared.write(product+band_key, True)
         logger.info("%s downloaded." % band_key)
 
     if targets:

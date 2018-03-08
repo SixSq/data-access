@@ -4,6 +4,8 @@ import multiprocessing
 import proc_runner
 import snap_op as snap
 from log import get_logger
+import NoDaemonProcess as ndp
+from multiprocessing.pool import Pool
 
 logger = get_logger()
 
@@ -28,16 +30,35 @@ tasks_map = {'ndvi': task1,
              'gndvi': task3}
 
 
+# def main2(jobs, indices_expr, s3conf):
+#     logger.info("%d cpu available" % multiprocessing.cpu_count())
+#
+#     for job in jobs:
+#         prod, proc_func, tasks = job
+#         map_arg = {'product': prod,
+#                    'tasks': tasks,
+#                    'indices_expr': indices_expr}
+#         logger.info('will run... %s', map_arg)
+#         proc_runner.main(proc_func, map_arg, s3conf)
+
 def main(jobs, indices_expr, s3conf):
     logger.info("%d cpu available" % multiprocessing.cpu_count())
+
+    nbproc = len(jobs)
+    pool = ndp.MyPool(processes=nbproc)
+    # pool = Pool(processes=nbproc)
 
     for job in jobs:
         prod, proc_func, tasks = job
         map_arg = {'product': prod,
                    'tasks': tasks,
                    'indices_expr': indices_expr}
-        logger.info('will run... %s', map_arg)
-        proc_runner.main(proc_func, map_arg, s3conf)
+        logger.info('work on job: %s', map_arg)
+        pool.apply_async(proc_runner.main,
+                         args=(proc_func, map_arg, s3conf),
+                         callback=lambda x: logger.info("SUCCESS job: %s", x))
+    pool.close()
+    pool.join()
 
 
 def _check_args():
