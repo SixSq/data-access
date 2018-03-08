@@ -2,7 +2,6 @@ from functools import partial
 from multiprocessing import Process
 import multiprocessing
 import threading
-import re
 
 import NoDaemonProcess as ndp
 import Shared
@@ -40,36 +39,36 @@ class download_decorator(object):
         # return self.target(pm.get_meta_from_prod(self.product), self.params)
 
     def _register_and_download_bands(self, product, bands, s3conf):
-        valid_index = [(product+key) for key in bands if (product+key) not in Shared.shared.dict]
+        valid_index = [key for key in bands if key not in Shared.shared.dict]
         for v in valid_index:
             Shared.shared.write(v, False)
         logger.info('Registered in shared object: %s' % ','.join(bands))
         logger.info('The shared object: %s' % Shared.shared.dict)
         rdm_sleep()
 
-        Shared.shared.dict[product+"nbproc"] += -1
-        if Shared.shared.dict[product+"nbproc"] == 0:
-            Shared.shared.write(product+'Init', False)
+        Shared.shared.dict["nbproc"] += -1
+        if Shared.shared.dict["nbproc"] == 0:
+            # Shared.shared.write('Init', False)
             self._run_download_manager(product, s3conf)
 
         # barrier until bands are downloaded
-        while not all(Shared.shared.dict[product+k] for k in bands):
+        while not all(Shared.shared.dict[k] for k in bands):
             logger.debug('Keys found for @%s, %s', multiprocessing.current_process().name,
-                         [k for k in bands if Shared.shared.dict[product+k]])
+                         [k for k in bands if Shared.shared.dict[k]])
             rdm_sleep(1)
-        logger.debug('The shared object after barrier on %s: %s' % (product, Shared.shared.dict))
+        logger.debug('The shared object after barrier: %s' % Shared.shared.dict)
 
     def _run_download_manager(self, product, s3conf):
+
         def create_download_threads(bands_loc, metadata_loc):
             whoaim("the download manager process for metadata and bands %s for prod %s." % (bands_loc, product))
-            object_list = set([re.sub('.*SAFE', '', k)  for k in Shared.shared.dict.keys()
-                               if re.sub('.*SAFE', '', k) in bands_loc.keys()])
+            object_list = [k for k in Shared.shared.dict.keys() if k in bands_loc.keys()]
             logger.info("Bands selected: %s for prod %s", object_list, product)
             meta = threading.Thread(target=prdl.get_product_metadata,
-                                    args=(metadata_loc, s3conf, product))
+                                    args=(metadata_loc, s3conf))
 
             bands = threading.Thread(target=prdl.get_product_data,
-                                     args=(bands_loc, s3conf, product, object_list))
+                                     args=(bands_loc, s3conf, object_list))
             meta.start()
             meta.join()  # Can be optimized
             bands.start()
@@ -95,9 +94,8 @@ def main(proc_func, args, s3conf):
     :param args: {'product': '', 'tasks': [{'bands': [], 'index': ''},], 'indices_expr': {'index': 'expr',}}
     :return:
     """
-    product = args['product']
     nbproc = len(args['tasks'])
-    Shared.shared.write(product + 'nbproc', nbproc)
+    Shared.shared.write("nbproc", nbproc)
     pool = ndp.MyPool(nbproc)
     prod_endpoint = pm.get_meta_from_prod(args['product'])
 
@@ -109,7 +107,7 @@ def main(proc_func, args, s3conf):
         logger.info('Starting async daemon for task: %s' % task)
         res.append(pool.apply_async(
             download_decorator(proc_func),
-            args=(product, task, args['indices_expr'][task['index']], s3conf),
+            args=(args['product'], task, args['indices_expr'][task['index']], s3conf),
             callback=proc_func_runner))
 
     pool.close()
